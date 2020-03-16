@@ -1,0 +1,99 @@
+#deploy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-api
+spec:
+  selector:
+    matchLabels:
+      app: activity-api
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: activity-api
+    spec:
+      containers:
+      - name: activity-api
+        image: registry-vpc.cn-shanghai.aliyuncs.com/jiadx/apps:activity-api-0.0.4-v13 
+        ports:
+        - containerPort: 6609
+        env:
+        - name: aliyun_logs_activity-api
+          value: "/opt/logs/activity-api/log.log4j"
+        volumeMounts:
+        - name: accesslogs
+          mountPath: /opt/logs/activity-api/ 
+        livenessProbe:
+          exec:
+            command:
+              - bash
+              - -c
+              - 'curl --request POST ''https://api.jiaofajituan.com/activity-api/activity/list'' --header ''Content-Type: application/json'''
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+              - bash
+              - -c
+              - 'curl --request POST ''https://api.jiaofajituan.com/activity-api/activity/list'' --header ''Content-Type: application/json'''
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+      volumes:
+      - name: accesslogs
+        emptyDir: {}
+      imagePullSecrets:
+      - name: regsecret
+      hostNetwork: true
+      
+---
+#service
+apiVersion: v1
+kind: Service
+metadata:
+  name: activity-api
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 6609 
+  selector:
+    app: activity-api
+  type: ClusterIP
+
+---
+#ingress
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: activity-api
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      if ($request_method = 'OPTIONS') {
+              add_header 'Access-Control-Allow-Origin' * always;
+              add_header 'Access-Control-Allow-Credentials' 'true';
+              add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
+              add_header 'Access-Control-Max-Age' '3600';
+              add_header 'Access-Control-Allow-Headers' 'DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-SESSIONID';
+              return 200;
+       }
+      if ($request_method = 'POST') {
+              add_header      'Access-Control-Allow-Origin'   * always;
+              add_header  'Access-Control-Allow-Credentials' 'true';
+              add_header  'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
+              add_header  'Access-Control-Max-Age' '3600';
+              add_header      'Access-Control-Allow-Headers'  'DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-SESSIONID';
+      }
+spec:
+  rules:
+  - host: api.jiaofajituan.com 
+    http:
+      paths:
+      - path: /activity-api
+        backend:
+          serviceName: activity-api
+          servicePort: 80
