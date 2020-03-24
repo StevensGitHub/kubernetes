@@ -1,0 +1,18 @@
+version: '3'
+services:
+    db:
+        image: registry.xiaobu.hk/library/mysql:latest 
+        container_name: mysql 
+        command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+        restart: always
+        environment:
+          MYSQL_ROOT_PASSWORD: ug8PRbXk
+          LANG: C.UTF-8
+          TZ: Asia/Shanghai
+          max_connections: 1000
+        ports:
+          - '3306:3306'
+        volumes:
+          - "./data:/var/lib/mysql"  
+          - "./conf:/etc/mysql"
+          - "./init:/docker-entrypoint-initdb.d/"
